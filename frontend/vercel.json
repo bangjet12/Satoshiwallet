@@ -1,0 +1,10 @@
+{
+  "buildCommand": "cd backend && uv sync --frozen && cd ../frontend && yarn build",
+  "outputDirectory": "frontend/build",
+  "installCommand": "cd frontend && yarn install",
+  "functions": {
+    "backend/api/**/*.py": {
+      "runtime": "python"
+    }
+  }
+}
