@@ -1,0 +1,16 @@
+{
+  "buildCommand": "cd frontend && yarn build",
+  "outputDirectory": "frontend/build",
+  "installCommand": "cd frontend && yarn install",
+  "functions": {
+    "backend/**/*.py": {
+      "runtime": "python3.12"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/backend/:path*",
+      "destination": "/backend/:path*"
+    }
+  ]
+}
