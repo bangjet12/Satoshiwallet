@@ -1,0 +1,30 @@
+[
+  {
+    "content": "Phase 1: POC LNbits integration - PASSED (6/6 tests)",
+    "status": "completed"
+  },
+  {
+    "content": "Phase 2: Get design guidelines from design_agent",
+    "status": "in_progress"
+  },
+  {
+    "content": "Phase 2: Backend implementation (FastAPI + MongoDB + LNbits)",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: Frontend implementation (Tether-style UI)",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: Username+PIN auth + multi-user ledger",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: All user stories covered in development",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: End-to-end testing via testing_agent_v3",
+    "status": "pending"
+  }
+]
