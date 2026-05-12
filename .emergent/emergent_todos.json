@@ -4,27 +4,15 @@
     "status": "completed"
   },
   {
-    "content": "Phase 2: Get design guidelines from design_agent",
+    "content": "Phase 2: Design guidelines + Backend (FastAPI/Mongo/LNbits) + Frontend (Tether-style UI) + Auth (Username+PIN) + Multi-user ledger",
     "status": "completed"
   },
   {
-    "content": "Phase 2: Backend implementation (FastAPI + MongoDB + LNbits)",
+    "content": "Phase 2: All user stories implemented (signup/login, balance + eye toggle, receive invoice + QR, send via bolt11/lightning address/internal username, scan QR, PIN confirmation, transaction history + detail, settings + logout, lightning address)",
     "status": "completed"
   },
   {
-    "content": "Phase 2: Frontend implementation (Tether-style UI)",
+    "content": "Phase 2: E2E testing via testing_agent_v3 - 100% (backend 34/34, frontend bug fixed and re-verified)",
     "status": "completed"
-  },
-  {
-    "content": "Phase 2: Username+PIN auth + multi-user ledger",
-    "status": "completed"
-  },
-  {
-    "content": "Phase 2: All user stories covered in development",
-    "status": "completed"
-  },
-  {
-    "content": "Phase 2: End-to-end testing via testing_agent_v3",
-    "status": "in_progress"
   }
 ]

@@ -1,119 +1,160 @@
 # plan.md — Satoshi Lightning Wallet (LNbits)
 
 ## 1) Objectives
-- Prove LNbits integration works end-to-end for **invoice creation + status + decode** using provided keys.
-- Build MVP “Satoshi” wallet UI mirroring Tether screenshot: centered balance, eye toggle, Transactions, bottom pill (Receive | Send) with orange accent (#F7931A).
-- Support real Lightning flows via LNbits for **Receive** and **external Send**, plus **instant internal transfers** via MongoDB ledger.
-- Provide Lightning Address per user: `username@satoshi.app` with LNURL-pay endpoint that returns an invoice.
-- Add Username+PIN auth after core flows are stable.
+- ✅ **LNbits Real Lightning integration (demo.lnbits.com)** proven and implemented end-to-end:
+  - wallet info, create invoice, decode BOLT11, check status, pay invoice (admin key), list payments.
+- ✅ Build MVP “Satoshi” wallet UI mirroring the provided Tether screenshot:
+  - monochrome dark UI + disciplined Bitcoin orange accent (#F7931A) on primary CTAs.
+- ✅ Support real Lightning flows via LNbits for **Receive** + **external Send**, plus **instant internal transfers** via MongoDB ledger.
+- ✅ Provide Lightning Address per user: `username@satoshi.app` with LNURL-pay endpoint + callback.
+- ✅ Add Username + 6-digit PIN auth (JWT sessions) and PIN-confirmation for outgoing payments.
+- ⏭️ Next objective (optional, not started): move from polling to webhooks, PWA polish, i18n/currency options, and production hardening.
 
 ## 2) Implementation Steps
 
-### Phase 1 — Core POC (LNbits in isolation)
+### Phase 1 — Core POC (LNbits in isolation) ✅ COMPLETED
 **Goal:** Don’t proceed until LNbits calls succeed reliably.
-1. Web research: confirm latest LNbits API endpoints for invoice/payments/decode + common error codes.
+1. Confirm LNbits API endpoints for invoice/payments/decode + common error codes.
 2. Create a minimal Python script (`poc_lnbits.py`) using:
    - Base URL: `https://demo.lnbits.com`
    - Invoice key for invoice creation/read; Admin key for privileged ops.
-3. POC checks (must pass):
-   - `GET /api/v1/wallet` (wallet info) with Admin key.
-   - `POST /api/v1/payments` with `out:false` to create BOLT11 invoice.
-   - `GET /api/v1/payments/{payment_hash}` to fetch payment status.
-   - `GET /api/v1/payments/decode?data={bolt11}` (or relevant endpoint) to decode invoice.
-4. Document integration playbook (headers, payloads, expected responses, retries/timeouts).
-5. If any call fails: iterate until fixed (URL normalization, headers, endpoint variants, query params).
+3. POC checks (passed):
+   - `GET /api/v1/wallet` (wallet info)
+   - `POST /api/v1/payments` with `out:false` to create invoice
+   - `POST /api/v1/payments/decode` to decode BOLT11
+   - `GET /api/v1/payments/{payment_hash}` to check paid status
+   - `GET /api/v1/payments` to list payments
+4. Record integration playbook (headers, payloads, expected responses, retries/timeouts).
 
-**Phase 1 user stories**
-1. As a developer, I can fetch LNbits wallet info to verify credentials are valid.
-2. As a developer, I can create a Lightning invoice and receive a BOLT11 string.
-3. As a developer, I can decode a BOLT11 invoice to show amount/description.
-4. As a developer, I can query invoice payment status by payment_hash.
-5. As a developer, I can reliably handle LNbits errors (401/422/5xx) with clear logs.
-
----
-
-### Phase 2 — V1 App Development (no auth initially)
-**Goal:** Working wallet flows using a single “demo user” to validate UX + data flow.
-1. Backend (FastAPI)
-   - Config: LNbits base URL + keys (env vars), sats↔USD rate (stub or simple external rate API later).
-   - Core endpoints (MVP):
-     - `POST /receive/invoice` (amount_sats, memo, user_id) → creates invoice via LNbits, stores `invoice_id/payment_hash`, returns bolt11 + qr.
-     - `GET /receive/status/{payment_hash}` → checks LNbits status; if paid, credits MongoDB ledger.
-     - `POST /send/decode` → decode pasted/scanned bolt11.
-     - `POST /send/pay` → (for now) simulate confirmation; optionally block actual payment until funded.
-     - `GET /txns` → list transactions (pending/complete/failed).
-     - `POST /lnurlp/{username}` → LNURL-pay: returns callback + metadata.
-     - `GET /lnurlp/{username}/callback?amount=...` → returns invoice (mints via LNbits) and associates to that username.
-   - MongoDB models: User (placeholder), Ledger balances in sats, Transactions.
-   - Background/polling: simple client polling for pending invoices (no websockets in V1).
-2. Frontend (React + shadcn/ui)
-   - Home screen (Tether-like): balance (sats + USD), eye toggle, Transactions link, bottom pill Receive/Send (orange accent).
-   - Receive flow: amount → create invoice → show QR + bolt11 copy.
-   - Send flow: paste bolt11 / lightning address / scan QR → decode → confirm screen.
-   - Transactions screen: list, details, status, pull-to-refresh.
-   - QR scanner: browser camera (fallback to file upload if camera denied).
-3. Internal transfers (V1 without auth)
-   - If input matches `^username@satoshi\.app$`, treat as internal: create ledger transfer instantly, record txns.
-   - Otherwise: LNURL-pay resolve (via our own LNURL endpoint) or bolt11 decode.
-4. End-to-end test run (manual + automated smoke): receive invoice → mark paid (if possible) or validate pending → ensure history updates.
-5. One round E2E testing via testing agent.
-
-**Phase 2 user stories**
-1. As a user, I see my wallet balance on the home screen in a clean Tether-like layout.
-2. As a user, I can hide/show my balance using the eye icon.
-3. As a user, I can generate a Receive invoice with an amount and display it as a QR.
-4. As a user, I can paste or scan a BOLT11 invoice and preview details before paying.
-5. As a user, I can view a transaction history with clear statuses.
+**Phase 1 user stories (done)**
+1. ✅ Fetch LNbits wallet info to verify credentials.
+2. ✅ Create a Lightning invoice and receive BOLT11.
+3. ✅ Decode a BOLT11 invoice.
+4. ✅ Query invoice payment status by payment_hash.
+5. ✅ Handle LNbits failures with clear backend errors.
 
 ---
 
-### Phase 3 — Add Auth + Multi-user + Real Send
-**Goal:** Turn V1 into a real multi-user custodial wallet.
-1. Auth (Username + 6-digit PIN)
-   - Signup/login, PIN hashing (bcrypt/argon2), JWT sessions.
-   - Lock screens: require PIN to confirm send.
-2. Multi-user ledger
-   - Per-user balances + atomic ledger updates (Mongo transaction or app-level idempotency).
-   - Rate limiting + basic abuse protection.
-3. Real external Send
-   - Enable `POST /send/pay` to call LNbits `out:true` payment.
-   - Idempotency keys for payments; store LNbits `payment_hash` and final status.
-4. Lightning Address end-to-end
-   - `username@satoshi.app` LNURL-pay works for any user; invoice credited to correct user when paid.
-5. One round E2E testing via testing agent.
+### Phase 2 — V1 App Development (MVP) ✅ COMPLETED
+**Goal:** Working multi-user wallet flows with real Lightning (custodial pool model).
 
-**Phase 3 user stories**
-1. As a new user, I can sign up with a username and 6-digit PIN.
-2. As a returning user, I can log in quickly and see only my own balance and history.
-3. As a user, I must confirm outgoing payments with my PIN.
-4. As a user, I can send sats instantly to another Satoshi user by Lightning Address.
-5. As a user, I can pay an external exchange invoice and see final success/failure.
+#### 2.1 Backend (FastAPI + MongoDB + LNbits) ✅
+- Environment configuration added:
+  - `LNBITS_URL`, `LNBITS_ADMIN_KEY`, `LNBITS_INVOICE_KEY`, `JWT_SECRET`, `LIGHTNING_ADDRESS_DOMAIN`, Mongo config.
+- Implemented auth & security:
+  - Username + 6-digit PIN signup/login
+  - bcrypt-hashed PIN, JWT (30-day) sessions
+- Implemented wallet/ledger model:
+  - LNbits wallet as pooled custody account
+  - Per-user `balance_sats` in MongoDB
+  - Atomic debit check for sending
+- Implemented endpoints (final paths):
+  - **Health:** `GET /api/health`
+  - **Auth:** `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/auth/me`
+  - **Users:** `GET /api/users/check/{username}`, `GET /api/users/{username}`
+  - **Wallet:** `GET /api/wallet/balance`
+  - **Settings:** `PATCH /api/settings`
+  - **Receive:** `POST /api/receive/invoice`, `GET /api/receive/status/{payment_hash}` (credits balance when paid)
+  - **Send:** `POST /api/send/decode`, `POST /api/send/pay`
+    - Supports BOLT11, Lightning Address (LNURL-pay), @username / `username@satoshi.app` internal transfers
+  - **Transactions:** `GET /api/transactions`, `GET /api/transactions/{tx_id}`
+  - **LNURL-pay (Lightning Address receive):**
+    - `GET /api/lnurlp/{username}`
+    - `GET /api/lnurlp/{username}/callback?amount=<msat>` → returns `{ pr }` and creates pending invoice transaction
+- E2E backend test status:
+  - ✅ 34/34 tests passed (auth, receive invoice creation, decode, internal transfer, tx isolation, LNURL endpoints).
+
+#### 2.2 Frontend (React + shadcn/ui + Tailwind) ✅
+- Tether-style monochrome UI + orange accent implemented.
+- Screens/components delivered:
+  - **AuthScreen:** username + PIN entry + confirm (signup) / login
+  - **WalletHome:**
+    - brand mark `satoshi.`
+    - “Total Wallet Balance” + eye toggle
+    - oversized Cormorant Garamond USD display + sats secondary
+    - Transactions link
+    - quick receive/send cards
+    - BTC/USD price card
+    - bottom floating action pill (Receive | Send)
+  - **ReceiveSheet:**
+    - numeric pad + memo
+    - generate LNbits BOLT11 invoice + QR
+    - copy/share
+    - auto-poll invoice status + “paid” overlay state
+  - **SendSheet:**
+    - paste invoice/lightning address/@username
+    - clipboard paste + QR scanner modal (html5-qrcode)
+    - decode preview
+    - amount entry (if needed)
+    - “review & pay” → PIN confirmation → result (success/failure)
+  - **TransactionsScreen:** filter tabs (all/pending/completed/failed), list rows, detail sheet with copy invoice
+  - **SettingsScreen:** lightning address copy, hide balance toggle, logout
+- Frontend bug fixed:
+  - ✅ Eye-toggle race condition with polling fixed; retested at 100%.
+
+**Phase 2 user stories (done)**
+1. ✅ User sees wallet balance on home screen in Tether-like layout.
+2. ✅ User can hide/show balance using eye icon (stable across polling + navigation).
+3. ✅ User can generate Receive invoice (BOLT11 + QR) and copy/share it.
+4. ✅ User can paste/scan to decode a BOLT11 or Lightning Address before paying.
+5. ✅ User can confirm outgoing payments using PIN.
+6. ✅ User can send sats instantly to another Satoshi user via @username or `username@satoshi.app`.
+7. ✅ User can view transaction history and open transaction details.
 
 ---
 
-### Phase 4 — Hardening, Monitoring, Production readiness
-1. Webhooks (if available) to replace polling for invoice paid events.
-2. Robust LNURL parsing + broader invoice formats; better fee/route error messaging.
-3. Security: secrets management, CORS, audit logs, replay protection, input validation.
-4. UI polish: empty states, error states, skeleton loaders, accessibility.
-5. Load testing on transaction endpoints + DB indexes.
+### Phase 3 — Product Enhancements (optional / not started)
+**Goal:** Improve UX reliability + app installability + broader payment compatibility.
+1. **Webhooks (replace polling):**
+   - Use LNbits webhook (if available) or a trusted event source to settle invoices without client polling.
+2. **PWA polish:**
+   - Add manifest + icons + install prompt; offline-friendly shell.
+3. **Localization & currency display:**
+   - Add Bahasa Indonesia strings; optional display BTC ↔ USD ↔ IDR; formatting settings.
+4. **Better payment parsing:**
+   - More robust LNURL / `lightning:` URI parsing; better zero-amount invoice UX.
+5. **Observability:**
+   - Structured logs for payments, correlation IDs; basic admin health dashboard.
 
-**Phase 4 user stories**
-1. As a user, I get clear error messages when a payment fails (insufficient balance/route failure).
-2. As a user, my receive invoices update automatically without manual refresh.
-3. As an operator, I can monitor LNbits/API failures and transaction anomalies.
-4. As a user, I can recover from accidental refresh without losing in-progress invoice data.
-5. As a user, I trust my balance consistency across devices.
+**Phase 3 user stories (planned)**
+1. As a user, my incoming invoices update automatically without waiting.
+2. As a user, I can install the wallet as an app (PWA) on iOS/Android.
+3. As a user, I can view balance in USD or IDR.
+4. As a user, Lightning Address + LNURL inputs “just work” across more wallet formats.
+
+---
+
+### Phase 4 — Production Hardening & Operations (optional / not started)
+**Goal:** Make the wallet production-grade.
+1. **Security & abuse protection:**
+   - rate limiting, brute-force PIN protection, lockouts, device/session management.
+2. **Secrets & environment management:**
+   - vault/secret manager integration; remove keys from source.
+3. **Ledger correctness:**
+   - idempotency keys for send/pay; stronger consistency guarantees; reconciliation job with LNbits.
+4. **Compliance/ops:**
+   - audit logs, admin tooling, monitoring/alerts.
+5. **Performance:**
+   - DB indexes review; load testing for tx endpoints.
+
+**Phase 4 user stories (planned)**
+1. As a user, I get clear error messages on failure and my balance stays consistent.
+2. As an operator, I can monitor LNbits/API failures and payment anomalies.
+3. As an operator, I can investigate transactions via audit logs.
 
 ## 3) Next Actions
-1. Run Phase 1 POC script against `https://demo.lnbits.com` with provided keys and capture responses.
-2. Confirm exact LNbits decode endpoint variant (depends on LNbits version) and finalize integration playbook.
-3. Implement Phase 2 backend endpoints + Mongo schema + minimal frontend shell (Home/Receive/Send/Txns).
-4. First full E2E: create invoice → display QR → check status polling → txn history reflects changes.
+- ✅ (Done) LNbits POC script execution and validation.
+- ✅ (Done) Implement backend endpoints + MongoDB schema + LNbits integration.
+- ✅ (Done) Implement frontend screens (Auth/Home/Receive/Send/Transactions/Settings) and finalize styling.
+- ✅ (Done) E2E testing: backend 34/34, frontend 100% after eye-toggle fix.
+- ⏭️ (Optional) Start Phase 3 if requested:
+  1. Add webhook-based invoice settlement.
+  2. Add PWA manifest + icons.
+  3. Add ID localization + IDR display.
 
 ## 4) Success Criteria
-- POC: wallet info fetch + invoice create + invoice decode + status check all succeed consistently.
-- V1: user can Receive (QR + bolt11), Send (decode + confirm), and view transaction history.
-- Internal transfers update balances instantly and are reflected in history.
-- Lightning Address (`username@satoshi.app`) resolves via LNURL-pay and can generate an invoice.
-- No broken states: clear handling for invalid invoice, insufficient balance, and LNbits downtime.
+- ✅ LNbits integration: wallet info + invoice create + decode + status check + pay invoice work.
+- ✅ MVP usability: Receive (QR + BOLT11), Send (decode + PIN confirm), internal transfers, transaction history.
+- ✅ Lightning Address: `username@satoshi.app` LNURL-pay endpoint returns invoice and credits correct user when paid.
+- ✅ Reliability: no broken states; clear errors for invalid invoice, insufficient balance, LNbits downtime.
+- ⏭️ Production readiness (Phase 4): rate limiting, secrets management, audit logs, reconciliation.
