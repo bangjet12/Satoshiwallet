@@ -34,7 +34,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const r = await api.get("/wallet/balance");
       setBalance(r.data.balance_sats || 0);
-      setHideBalance(!!r.data.hide_balance);
+      // Do NOT overwrite hide_balance during polling — local state is the source of truth
+      // until the user explicitly toggles or logs in.
       return r.data;
     } catch (e) {
       return null;
@@ -89,12 +90,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const toggleHideBalance = async () => {
-    const next = !hideBalance;
-    setHideBalance(next);
+    setHideBalance((prev) => !prev);
     try {
+      // Get current value via state setter (cannot read state synchronously after setter call)
+      const next = !hideBalance;
       await api.patch("/settings", { hide_balance: next });
     } catch {
-      setHideBalance(!next);
+      setHideBalance((prev) => !prev);
     }
   };
 

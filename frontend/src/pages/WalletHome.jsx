@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Menu } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import BrandMark from "@/components/BrandMark";
 import BottomActionPill from "@/components/BottomActionPill";
@@ -58,9 +58,7 @@ export default function WalletHome() {
           </div>
 
           <motion.div
-            key={hideBalance ? "hidden" : "shown"}
-            initial={{ opacity: 0, filter: "blur(2px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.22 }}
             className="mt-5 font-display text-[88px] leading-none tabular-nums"
             data-testid="wallet-balance-amount"
