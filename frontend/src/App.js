@@ -1,51 +1,87 @@
-import { useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Toaster } from "@/components/ui/sonner";
+import AuthScreen from "@/pages/AuthScreen";
+import WalletHome from "@/pages/WalletHome";
+import TransactionsScreen from "@/pages/TransactionsScreen";
+import SettingsScreen from "@/pages/SettingsScreen";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const Protected = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[#0a0a0a] text-white/40 text-xs small-caps">
+        loading
+      </div>
+    );
+  }
+  if (!user) {
+    return <Navigate to="/auth" replace state={{ from: location }} />;
+  }
+  return children;
+};
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
+const PublicOnly = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return children;
 };
 
 function App() {
   return (
-    <div className="App">
+    <div className="App min-h-dvh bg-[#0a0a0a] text-white">
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route
+              path="/auth"
+              element={
+                <PublicOnly>
+                  <AuthScreen />
+                </PublicOnly>
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <Protected>
+                  <WalletHome />
+                </Protected>
+              }
+            />
+            <Route
+              path="/transactions"
+              element={
+                <Protected>
+                  <TransactionsScreen />
+                </Protected>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <Protected>
+                  <SettingsScreen />
+                </Protected>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <Toaster
+            theme="dark"
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "#161616",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: "#fff",
+              },
+            }}
+          />
+        </AuthProvider>
       </BrowserRouter>
     </div>
   );
